@@ -1,0 +1,117 @@
+import speech_recognition as sr
+import pyttsx3
+import pywhatkit
+import datetime
+import wikipedia
+import pyjokes
+import pyautogui
+import requests
+import sys
+
+listener = sr.Recognizer()
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+engine.setProperty('voice', voices[0].id)
+
+def talk(text):
+    engine.say(text)
+    engine.runAndWait()
+
+def take_command():
+    command = ""
+    try:
+        with sr.Microphone() as source:
+            print('Listening...')
+            voice = listener.listen(source)
+            command = listener.recognize_google(voice)
+            command = command.lower()
+            if 'jarvis' in command:
+                command = command.replace('jarvis', '')
+                print(command)
+    except sr.UnknownValueError:
+        print("Sorry, I did not understand that.")
+    except sr.RequestError as e:
+        print(f"Could not request results from Google Speech Recognition service; {e}")
+
+    return command
+
+def pause_playback():
+    pyautogui.press('space')
+
+def get_weather(city):
+    api_key = 'f6d93e010c6c882c16f8db8788c42524'
+    base_url = 'http://api.openweathermap.org/data/2.5/weather'
+    params = {'q': city, 'appid': api_key}
+
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        weather_data = response.json()
+
+        print(weather_data)  # Print the full response for debugging
+
+        if 'weather' in weather_data:
+            description = weather_data['weather'][0]['description']
+            temperature = round(weather_data['main']['temp'] - 273.15, 2)  # Convert to Celsius
+            return f'The weather in {city} is {description} with a temperature of {temperature}°C.'
+        else:
+            return 'Unable to fetch weather information.'
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return 'Error fetching weather information.'
+
+def run_jarvis():
+    command = take_command()
+    print(command)
+
+    if 'play' in command:
+        song = command.replace('play', '')
+        talk('playing ' + song)
+        pywhatkit.playonyt(song)
+
+    elif 'pause' in command:
+        talk('Pausing playback.')
+        pause_playback()
+
+    elif 'time' in command:
+        time = datetime.datetime.now().strftime('%I:%M %p')
+        print(time)
+        talk('Current time is ' + time)
+
+    elif 'date' in command:
+        date = datetime.datetime.now().strftime('%m-%d-%Y')
+        print(date)
+        talk('Current date is ' + date)
+
+    elif 'who is' in command:
+        person = command.replace('who is', '').strip()
+        try:
+            info = wikipedia.summary(person, 1)
+            print(info)
+            talk(info)
+        except wikipedia.exceptions.DisambiguationError as e:
+            print(f"DisambiguationError: {e}")
+        except wikipedia.exceptions.PageError as e:
+            print(f"PageError: {e}")
+
+    elif 'joke' in command:
+        talk(pyjokes.get_joke())
+        print(pyjokes.get_joke())
+
+    elif 'weather' in command:
+        city = command.replace('weather', '').strip()
+        weather_info = get_weather(city)
+        print(weather_info)
+        talk(weather_info)
+
+    elif 'stop the program' in command:
+        talk('Stopping the program.')
+        sys.exit()
+
+    else:
+        talk('Please say the command again.')
+
+if __name__ == "__main__":
+    while True:
+        print("Listening for a command...")
+        run_jarvis()
